@@ -1,0 +1,46 @@
+{
+  "manifest_version": 3,
+  "name": "Blockiny",
+  "version": "1.0.0",
+  "description": "Strict website blocker. Pick your sites, pick your minutes, no undo.",
+  "permissions": [
+    "storage",
+    "alarms",
+    "declarativeNetRequest",
+    "history",
+    "notifications",
+    "offscreen"
+  ],
+  "host_permissions": [
+    "<all_urls>"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_title": "Blockiny",
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "32": "icon32.png",
+      "48": "icon48.png"
+    }
+  },
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*.youtube.com/*"
+      ],
+      "js": [
+        "phase.js",
+        "yt-guard.js"
+      ],
+      "run_at": "document_start"
+    }
+  ]
+}

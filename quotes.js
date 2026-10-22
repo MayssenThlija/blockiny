@@ -1,0 +1,22 @@
+const QUOTES = [
+  { text: "Life is long if you know how to use it.", by: "Seneca", category: "focus" },
+  { text: "It is not that we have a short time to live, but that we waste a lot of it.", by: "Seneca", category: "focus" },
+  { text: "Genius is one percent inspiration, ninety-nine percent perspiration.", by: "Thomas Edison", category: "discipline" },
+  { text: "By always thinking unto them.", by: "Isaac Newton, on discovery", category: "focus" },
+  { text: "The first principle is that you must not fool yourself, and you are the easiest person to fool.", by: "Richard Feynman", category: "learning" },
+  { text: "We can only see a short distance ahead, but we can see plenty there that needs to be done.", by: "Alan Turing", category: "learning" },
+  { text: "I was taught that the way of progress was neither swift nor easy.", by: "Marie Curie", category: "discipline" },
+  { text: "What stands in the way becomes the way.", by: "Marcus Aurelius", category: "discipline" },
+  { text: "We are what we repeatedly do. Excellence, then, is not an act, but a habit.", by: "Will Durant, on Aristotle", category: "discipline" },
+  { text: "Stay hungry. Stay foolish.", by: "Steve Jobs", category: "learning" },
+  { text: "The feed can wait.", by: "Blockiny", category: "focus" },
+  { text: "This hour matters.", by: "Blockiny", category: "focus" },
+  { text: "Stay on one task.", by: "Blockiny", category: "focus" },
+  { text: "Short sessions still count.", by: "Blockiny", category: "discipline" },
+  { text: "Work first. Scroll later.", by: "Blockiny", category: "discipline" },
+  { text: "Slow down and understand it.", by: "Blockiny", category: "learning" },
+  { text: "Rest is part of the work.", by: "Blockiny", category: "calm" },
+  { text: "Stand up. Stretch.", by: "Blockiny", category: "calm" },
+  { text: "Look away from the screen for a moment.", by: "Blockiny", category: "calm" },
+  { text: "Take one slow breath.", by: "Blockiny", category: "calm" }
+];

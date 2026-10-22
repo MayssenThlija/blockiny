@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blocked by Blockiny</title>
+  <link rel="stylesheet" href="blocked.css">
+</head>
+<body>
+  <main>
+    <div class="eyebrow">BLOCKINY FOCUS MODE</div>
+    <h1 id="title">Focus session active</h1>
+    <p id="message" class="message">This site is blocked until your session ends.</p>
+    <p id="phaseInfo" class="phase-info" hidden></p>
+    <section id="goalCard" class="goal-card" hidden>
+      <span>YOUR GOAL</span>
+      <strong id="goalText"></strong>
+    </section>
+    <blockquote id="quote"></blockquote>
+    <p id="by" class="by"></p>
+    <div class="time">
+      <span id="left">00:00</span>
+      <small id="timeLabel">remaining</small>
+    </div>
+    <p id="attempts" class="attempts" hidden></p>
+  </main>
+  <script src="phase.js"></script>
+  <script src="quotes.js"></script>
+  <script src="blocked.js"></script>
+</body>
+</html>

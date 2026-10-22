@@ -1,0 +1,172 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Blockiny</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <img src="icons/icon48.png" alt="" width="32" height="32">
+      <div class="title-block">
+        <h1>Blockiny</h1>
+        <p class="tagline">Block it. Mean it.</p>
+      </div>
+      <button id="openFull" class="link" type="button" title="Open in a full browser tab">Full page ↗</button>
+    </header>
+
+    <section id="setup">
+      <div class="col">
+        <section class="card">
+          <label for="siteInput">Sites to block</label>
+          <div id="field" class="field">
+            <div id="chips"></div>
+            <input id="siteInput" type="text" placeholder="youtube.com" autocomplete="off" spellcheck="false">
+          </div>
+          <ul id="suggestions" class="suggestions" hidden></ul>
+        </section>
+
+        <section class="card">
+          <label for="goal">Today's focus goal <span class="optional">(optional)</span></label>
+          <input id="goal" type="text" maxlength="120" placeholder="Example: Finish chapter 3 exercises" autocomplete="off">
+        </section>
+
+        <section class="card">
+          <label for="allowInput">Allow specific YouTube pages <span class="optional">(optional)</span></label>
+          <div class="allow-row">
+            <input id="allowInput" type="text" placeholder="Paste a video or playlist link" autocomplete="off" spellcheck="false">
+            <button id="allowAdd" type="button">Add</button>
+          </div>
+          <div id="allowChips" class="chips-static left"></div>
+          <p id="allowError" class="error small"></p>
+        </section>
+
+        <section class="card">
+          <label for="sound">Focus sound <span class="optional">(optional)</span></label>
+          <select id="sound">
+            <option value="off" selected>Off</option>
+            <option value="white">White noise</option>
+            <option value="brown">Brown noise</option>
+            <option value="rain">Rain</option>
+            <option value="forest">Forest</option>
+          </select>
+          <div class="vol-row"><span>Volume</span><input id="volume" type="range" min="0" max="100" value="40"></div>
+        </section>
+      </div>
+
+      <div class="col">
+        <div id="modes" class="modes">
+          <button type="button" data-mode="custom" class="on">Custom time</button>
+          <button type="button" data-mode="pomodoro">Pomodoro</button>
+        </div>
+
+        <section id="customCard" class="card">
+          <label for="minutes">For how long?</label>
+          <div id="presets" class="presets">
+            <button type="button" data-min="15">15m</button>
+            <button type="button" data-min="30">30m</button>
+            <button type="button" data-min="60">1h</button>
+            <button type="button" data-min="120">2h</button>
+            <button type="button" data-min="240">4h</button>
+            <button type="button" data-min="480">8h</button>
+          </div>
+          <div class="custom">
+            <input id="minutes" type="number" min="1" max="1440" value="15">
+            <span>minutes</span>
+          </div>
+        </section>
+
+        <section id="pomoCard" class="card" hidden>
+          <label>Pomodoro rhythm</label>
+          <div id="pomoPresets" class="pomo-presets">
+            <button type="button" data-focus="25" data-break="5" class="on">25 / 5</button>
+            <button type="button" data-focus="50" data-break="10">50 / 10</button>
+            <button type="button" data-focus="90" data-break="15">90 / 15</button>
+          </div>
+          <div class="custom">
+            <input id="cycles" type="number" min="1" max="12" value="4">
+            <span>rounds</span>
+          </div>
+          <p id="pomoSummary" class="hint"></p>
+        </section>
+
+        <button id="start" class="primary" type="button">Block. No undo.</button>
+        <p id="error" class="error" role="alert"></p>
+
+        <section class="card">
+          <div class="stats">
+            <div><strong id="statToday">0m</strong><span>today</span></div>
+            <div><strong id="statStreak">0</strong><span>day streak</span></div>
+            <div><strong id="statTotal">0h</strong><span>this week</span></div>
+          </div>
+          <div id="chart" class="chart" aria-label="Minutes focused in the last 7 days"></div>
+          <p id="chartCaption" class="hint center"></p>
+        </section>
+
+        <details class="card schedule">
+          <summary>Weekly schedule</summary>
+          <p class="hint">Uses the sites, goal and allowed pages chosen on the left.</p>
+          <div id="schedDays" class="days">
+            <button type="button" data-day="1" class="on">Mon</button>
+            <button type="button" data-day="2" class="on">Tue</button>
+            <button type="button" data-day="3" class="on">Wed</button>
+            <button type="button" data-day="4" class="on">Thu</button>
+            <button type="button" data-day="5" class="on">Fri</button>
+            <button type="button" data-day="6">Sat</button>
+            <button type="button" data-day="0">Sun</button>
+          </div>
+          <div class="sched-row">
+            <input id="schedTime" type="time" value="09:00">
+            <input id="schedMinutes" type="number" min="1" max="1440" value="60">
+            <span>min</span>
+            <button id="schedAdd" type="button">Add</button>
+          </div>
+          <p id="schedError" class="error small"></p>
+          <ul id="schedList" class="sched-list"></ul>
+          <p class="hint">A schedule cannot be deleted in the 24 hours before it starts. You can undo a new one for 10 minutes.</p>
+        </details>
+
+        <label class="check"><input type="checkbox" id="notifyToggle" checked> Desktop notifications</label>
+      </div>
+    </section>
+
+    <section id="locked" hidden>
+      <div class="ring-wrap">
+        <svg class="ring" viewBox="0 0 120 120" aria-hidden="true">
+          <circle class="ring-bg" cx="60" cy="60" r="52"></circle>
+          <circle id="ringFg" class="ring-fg" cx="60" cy="60" r="52"></circle>
+        </svg>
+        <div class="ring-text">
+          <strong id="countdown">00:00</strong>
+          <small id="phaseLabel">remaining</small>
+        </div>
+      </div>
+      <p id="lockedGoal" class="locked-goal" hidden></p>
+      <p id="lockedMsg" class="locked-msg">Stay with your task.</p>
+      <div id="lockedList" class="chips-static"></div>
+      <p id="lockedAllowedTitle" class="hint" hidden>Allowed pages</p>
+      <div id="lockedAllowed" class="chips-static"></div>
+      <p id="lockedAttempts" class="hint"></p>
+      <div class="allow-row add-site">
+        <input id="lockedSite" type="text" placeholder="Block another site" autocomplete="off" spellcheck="false">
+        <button id="lockedSiteAdd" type="button">Add</button>
+      </div>
+      <p id="lockedError" class="error small"></p>
+      <div class="locked-sound">
+        <select id="lockedSound">
+          <option value="off">Sound: off</option>
+          <option value="white">White noise</option>
+          <option value="brown">Brown noise</option>
+          <option value="rain">Rain</option>
+          <option value="forest">Forest</option>
+        </select>
+        <input id="lockedVolume" type="range" min="0" max="100" value="40" aria-label="Volume">
+      </div>
+    </section>
+  </main>
+  <script src="phase.js"></script>
+  <script src="popup.js"></script>
+</body>
+</html>
