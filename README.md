@@ -2,7 +2,7 @@
 
 Blockiny is a Chrome extension for strict focus sessions. Choose the sites, choose the time, and start a session with no undo button.
 
-![Blockiny setup](./assets/setup.jpg)
+![Blockiny setup](setup.jpg)
 
 ## Features
 
@@ -19,15 +19,15 @@ Blockiny is a Chrome extension for strict focus sessions. Choose the sites, choo
 
 ### Setup
 
-![Blockiny setup screen](./assets/setup.jpg)
+![Blockiny setup screen](setup.jpg)
 
 ### Active session
 
-![Blockiny active session screen](./assets/active.jpg)
+![Blockiny active session screen](active.jpg)
 
 ### Blocked page
 
-![Blockiny blocked page](./assets/blocked.jpg)
+![Blockiny blocked page](blocked.jpg)
 
 ## Install locally
 
