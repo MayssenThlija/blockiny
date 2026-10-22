@@ -4,14 +4,13 @@ const $ = id => document.getElementById(id);
 
 // Fallback suggestions. They are merged with the sites you actually visit (see loadCandidates).
 const POPULAR = [
-  "youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com", "twitter.com",
+  "youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com",
   "reddit.com", "netflix.com", "twitch.tv", "snapchat.com", "pinterest.com", "linkedin.com",
-  "discord.com", "9gag.com", "tumblr.com", "threads.net", "kick.com", "crunchyroll.com",
-  "disneyplus.com", "primevideo.com", "spotify.com", "web.whatsapp.com", "amazon.com", "ebay.com"
+  "discord.com","threads.com", "kick.com",
+  "disneyplus.com", "primevideo.com", "web.whatsapp.com"
 ];
 const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
-// Study/work sites that should never be suggested from your history (nobody blocks Moodle).
 const IGNORE = [
   /moodle/, /canvas/, /blackboard/, /ilias/, /classroom\.google/, /\.edu$/, /\.ac\.[a-z]{2}$/,
   /brightspace/, /schoology/, /docs\.google/, /drive\.google/, /mail\.google/, /scholar\.google/,
@@ -130,7 +129,7 @@ $("siteInput").addEventListener("keydown", e => {
 $("field").addEventListener("click", () => $("siteInput").focus());
 
 // Build the suggestion list: (your own history, minus study/work sites) + popular sites, minus hidden ones.
-// History is read locally from your browser. Nothing is sent anywhere.
+// History is read locally from your browser. 
 async function loadCandidates() {
   const stored = await chrome.storage.local.get("hiddenSites");
   hidden = stored.hiddenSites || [];
