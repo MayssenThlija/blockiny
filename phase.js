@@ -1,3 +1,10 @@
+const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
+ function dayKey(date = new Date()) { return date.toLocaleDateString("en-CA"); }
+ 
+function cleanGoal(goal) {
+  return typeof goal === "string" ? goal.trim().replace(/\s+/g, " ").slice(0, 120) : "";
+}
+
 function normalizeSession(session) {
   const focusMs = session.focusMs || (session.endsAt - session.startedAt);
   return {
