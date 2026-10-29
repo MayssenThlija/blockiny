@@ -3,13 +3,16 @@
   "name": "Blockiny",
   "version": "1.0.0",
   "description": "Strict website blocker. Pick your sites, pick your minutes, no undo.",
-  "permissions": [
+  "minimum_chrome_version": "116",
+ "permissions": [
     "storage",
     "alarms",
     "declarativeNetRequest",
-    "history",
     "notifications",
     "offscreen"
+  ],
+  "optional_permissions": [
+    "history"
   ],
   "host_permissions": [
     "<all_urls>"
