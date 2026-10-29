@@ -2,15 +2,15 @@
 
 const $ = id => document.getElementById(id);
 
-// Fallback suggestions. They are merged with the sites you actually visit (see loadCandidates).
+// Default suggestions. If history access is allowed, your most visited sites get added to these.
 const POPULAR = [
-  "youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com",
+  "youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com", "twitter.com",
   "reddit.com", "netflix.com", "twitch.tv", "snapchat.com", "pinterest.com", "linkedin.com",
-  "discord.com","threads.com", "kick.com",
-  "disneyplus.com", "primevideo.com", "web.whatsapp.com"
+  "discord.com", "9gag.com", "tumblr.com", "threads.net", "kick.com", "crunchyroll.com",
+  "disneyplus.com", "primevideo.com", "spotify.com", "web.whatsapp.com", "amazon.com", "ebay.com"
 ];
-const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 
+// Study and work sites that should not show up as suggestions.
 const IGNORE = [
   /moodle/, /canvas/, /blackboard/, /ilias/, /classroom\.google/, /\.edu$/, /\.ac\.[a-z]{2}$/,
   /brightspace/, /schoology/, /docs\.google/, /drive\.google/, /mail\.google/, /scholar\.google/,
@@ -67,8 +67,13 @@ function addChip(domain) {
   renderSuggestions();
 }
 
+// What the user typed, without "https://" or "www."
+function getQuery() {
+  return $("siteInput").value.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "");
+}
+
 function getMatches() {
-  const q = $("siteInput").value.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "");
+  const q = getQuery();
   if (!q) return [];
   const hits = candidates.filter(d => d.includes(q) && !chips.includes(d));
   // starts-with matches first, then "contains" matches
@@ -78,7 +83,7 @@ function getMatches() {
 
 function renderSuggestions() {
   const list = $("suggestions");
-  const q = $("siteInput").value.trim().toLowerCase().replace(/^[a-z]+:\/\//, "").replace(/^www\./, "");
+  const q = getQuery();
   const matches = getMatches();
   activeIndex = matches.length ? 0 : -1;
   list.hidden = matches.length === 0;
@@ -128,26 +133,42 @@ $("siteInput").addEventListener("keydown", e => {
 });
 $("field").addEventListener("click", () => $("siteInput").focus());
 
-// Build the suggestion list: (your own history, minus study/work sites) + popular sites, minus hidden ones.
-// History is read locally from your browser. 
+// Suggestions = popular sites, plus the most visited sites if the user allowed history access.
+// History is only read on this device to count visits per site. It is never stored or sent anywhere.
 async function loadCandidates() {
   const stored = await chrome.storage.local.get("hiddenSites");
   hidden = stored.hiddenSites || [];
+  const hasHistory = await chrome.permissions.contains({ permissions: ["history"] });
+  $("historyBtn").hidden = hasHistory;
+  $("historyNote").hidden = hasHistory;
   let top = [];
-  try {
-    const items = await chrome.history.search({ text: "", maxResults: 1000, startTime: Date.now() - 30 * 864e5 });
-    const counts = {};
-    for (const it of items) {
-      let host;
-      try { host = new URL(it.url).hostname.replace(/^www\./, ""); } catch { continue; }
-      if (!DOMAIN_RE.test(host) || /^\d+(\.\d+)+$/.test(host)) continue; // skip junk and IP addresses
-      if (isIgnored(host)) continue;                                      // skip study/work sites
-      counts[host] = (counts[host] || 0) + (it.visitCount || 1);
+  if (hasHistory) {
+    try {
+      const items = await chrome.history.search({ text: "", maxResults: 500, startTime: Date.now() - 30 * 864e5 });
+      const counts = {};
+      for (const it of items) {
+        let host;
+        try { host = new URL(it.url).hostname.replace(/^www\./, ""); } catch { continue; }
+        if (!DOMAIN_RE.test(host) || /^\d+(\.\d+)+$/.test(host)) continue; // skip junk and IP addresses
+        if (isIgnored(host)) continue;
+        counts[host] = (counts[host] || 0) + (it.visitCount || 1);
+      }
+      top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 40).map(e => e[0]);
+    } catch (err) {
+      console.warn("Could not read history:", err);
     }
-    top = Object.entries(counts).sort((a, b) => b[1] - a[1]).slice(0, 40).map(e => e[0]);
-  } catch { /* no history permission or no data: the popular list still works */ }
+  }
   candidates = [...new Set([...top, ...POPULAR])].filter(d => !hidden.includes(d));
 }
+
+$("historyBtn").addEventListener("click", async () => {
+  // Has to run straight from the click, Chrome only shows the prompt after a user action.
+  // If the popup closes when the prompt appears, just reopen it.
+  const granted = await chrome.permissions.request({ permissions: ["history"] });
+  if (!granted) return;
+  await loadCandidates();
+  renderSuggestions();
+});
 
 async function hideSuggestion(domain) {
   hidden.push(domain);
@@ -173,8 +194,6 @@ $("minutes").addEventListener("input", () => { syncPresets(); showError(""); dis
 /* ---------- allowed YouTube pages ---------- */
 
 let allowed = [];
-const VIDEO_RE = /^[A-Za-z0-9_-]{11}$/;
-const LIST_RE = /^[A-Za-z0-9_-]{10,64}$/;
 
 function parseYouTube(raw) {
   let url;
@@ -186,8 +205,8 @@ function parseYouTube(raw) {
   else if (host !== "youtube.com") return { error: "Only YouTube links are supported." };
   const list = host === "youtube.com" && ["/watch", "/playlist"].includes(url.pathname) ? url.searchParams.get("list") : null;
   const items = [];
-  if (list && LIST_RE.test(list) && !list.startsWith("RD")) items.push({ kind: "playlist", id: list });
-  if (video && VIDEO_RE.test(video)) items.push({ kind: "video", id: video });
+  if (list && PLAYLIST_ID_RE.test(list) && !list.startsWith("RD")) items.push({ kind: "playlist", id: list });
+  if (video && VIDEO_ID_RE.test(video)) items.push({ kind: "video", id: video });
   if (!items.length) {
     return { error: list && list.startsWith("RD") ? "Auto-generated mixes are not allowed." : "Use a video or playlist link." };
   }
@@ -266,11 +285,6 @@ $("cycles").addEventListener("input", () => { renderPomoSummary(); showError("")
 
 /* ---------- stats and weekly chart ---------- */
 
-const dayKey = d => d.toLocaleDateString("en-CA");
-function fmtMinutes(m) {
-  if (m < 60) return `${m}m`;
-  return m % 60 ? `${Math.floor(m / 60)}h ${m % 60}m` : `${Math.floor(m / 60)}h`;
-}
 async function loadStats() {
   const res = await chrome.runtime.sendMessage({ type: "stats" });
   const days = (res && res.stats && res.stats.days) || {};
@@ -293,18 +307,18 @@ async function loadStats() {
   if (!t.sessions) cur.setDate(cur.getDate() - 1);
   while (get(cur).sessions > 0) { streak++; cur.setDate(cur.getDate() - 1); }
 
-  $("statToday").textContent = fmtMinutes(t.minutes);
+  $("statToday").textContent = fmtDuration(t.minutes);
   $("statStreak").textContent = String(streak);
-  $("statTotal").textContent = fmtMinutes(weekMinutes);
+  $("statTotal").textContent = fmtDuration(weekMinutes);
 
   $("chart").replaceChildren(...week.map(d => {
     const col = document.createElement("div");
     col.className = "bar-col";
     const label = d.date.toLocaleDateString([], { weekday: "short" });
-    col.title = `${label}: ${fmtMinutes(d.minutes)}`;
+    col.title = `${label}: ${fmtDuration(d.minutes)}`;
     const value = document.createElement("span");
     value.className = "bar-val";
-    value.textContent = d.minutes ? fmtMinutes(d.minutes) : "";
+    value.textContent = d.minutes ? fmtDuration(d.minutes) : "";
     const track = document.createElement("div");
     track.className = "bar-track";
     const bar = document.createElement("div");
@@ -367,7 +381,7 @@ $("schedAdd").addEventListener("click", async () => {
   $("schedError").textContent = "";
   if ($("siteInput").value.trim()) commitTyped();
   if (!commitAllow()) { $("schedError").textContent = "Fix the allowed page first."; return; }
-  const goal = $("goal").value.trim().replace(/\s+/g, " ").slice(0, 120);
+  const goal = cleanGoal($("goal").value);
   const res = await chrome.runtime.sendMessage({
     type: "addSchedule", days: [...schedDays], time: $("schedTime").value,
     minutes: Number($("schedMinutes").value), domains: chips, goal, allowed
@@ -398,7 +412,7 @@ function disarm() {
 
 $("start").addEventListener("click", async () => {
   if ($("siteInput").value.trim()) commitTyped();
-  const goal = $("goal").value.trim().replace(/\s+/g, " ").slice(0, 120);
+  const goal = cleanGoal($("goal").value);
   if (!commitAllow()) return showError("Fix the allowed page first.");
   if (!chips.length) return showError("Add at least one site.");
   if (allowed.length && !chips.includes("youtube.com")) return showError("Add youtube.com to the blocked sites first.");
