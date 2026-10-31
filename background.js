@@ -909,7 +909,7 @@ if (
       await startSession(
         message.domains,
         config,
-        cleanGoal(message.goal),
+        blockinyCleanGoal(message.goal)  
         allowed.map(({ kind, id }) => ({ kind, id })),
         Date.now(),
         cleanSound(message)
