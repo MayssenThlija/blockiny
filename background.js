@@ -2,6 +2,7 @@ importScripts("phase.js");
 
 const ALARM = "blockiny-phase";
 const SCHED_PREFIX = "blockiny-sched:";
+const BLOCKINY_DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const SOUNDS = ["off", "white", "brown", "rain", "forest"];
 
@@ -549,8 +550,7 @@ function validDomainList(domains) {
     domains.every(
       domain =>
         typeof domain === "string" &&
-        DOMAIN_RE.test(domain)
-    )
+BLOCKINY_DOMAIN_RE.test(domain)    )
   );
 }
 
@@ -824,22 +824,22 @@ async function handleMessage(message, sender) {
     case "addSite": {
       const session = await applyPhase();
 
-      if (!session) {
-        return {
-          ok: false,
-          error: "No session is running."
-        };
-      }
+     if (!session) {
+  return {
+    ok: false,
+    error: "No session is running."
+  };
+}
 
-      if (
-        typeof message.domain !== "string" ||
-        !DOMAIN_RE.test(message.domain)
-      ) {
-        return {
-          ok: false,
-          error: "Try something like reddit.com"
-        };
-      }
+if (
+  typeof message.domain !== "string" ||
+  !BLOCKINY_DOMAIN_RE.test(message.domain)
+) {
+  return {
+    ok: false,
+    error: "Try something like reddit.com"
+  };
+}
 
       if (session.domains.includes(message.domain)) {
         return { ok: true };
