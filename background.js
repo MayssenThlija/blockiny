@@ -41,6 +41,12 @@ function pick(list) {
   return list[Math.floor(Math.random() * list.length)];
 }
 
+function blockinyCleanGoal(goal) {
+  return typeof goal === "string"
+    ? goal.trim().replace(/\s+/g, " ").slice(0, 120)
+    : "";
+}
+
 /* ---------- notifications ---------- */
 
 async function notify(title, message) {
