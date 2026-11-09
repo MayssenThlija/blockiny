@@ -2,7 +2,6 @@ importScripts("phase.js");
 
 const ALARM = "blockiny-phase";
 const SCHED_PREFIX = "blockiny-sched:";
-const DOMAIN_RE = /^[a-z0-9-]+(\.[a-z0-9-]+)+$/;
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 const SOUNDS = ["off", "white", "brown", "rain", "forest"];
 const MAX_TOTAL_MIN = 1440;
@@ -29,7 +28,7 @@ async function notify(title, message) {
   const { settings } = await chrome.storage.local.get("settings");
   if (settings && settings.notify === false) return;
   try {
-    await chrome.notifications.create({ type: "basic", iconUrl: "icons/icon128.png", title, message, priority: 1 });
+    await chrome.notifications.create({ type: "basic", iconUrl: "icon128.png", title, message, priority: 1 });
   } catch {}
 }
 
