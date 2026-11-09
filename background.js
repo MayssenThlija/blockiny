@@ -29,7 +29,7 @@ async function notify(title, message) {
   const { settings } = await chrome.storage.local.get("settings");
   if (settings && settings.notify === false) return;
   try {
-    await chrome.notifications.create({ type: "basic", iconUrl: "icon128.png", title, message, priority: 1 });
+    await chrome.notifications.create({ type: "basic", iconUrl: "icons/icon128.png", title, message, priority: 1 });
   } catch {}
 }
 
