@@ -2,6 +2,16 @@
 
 const $ = id => document.getElementById(id);
 
+// Safe wrapper: never throws, always returns an object (even if the background worker is down).
+async function send(message) {
+  try {
+    const res = await chrome.runtime.sendMessage(message);
+    return res || { ok: false, error: "No answer from the background worker. Reload the extension." };
+  } catch (err) {
+    return { ok: false, error: "Background worker not reachable. Reload the extension." };
+  }
+}
+
 // Default suggestions. If history access is allowed, your most visited sites get added to these.
 const POPULAR = [
   "youtube.com", "instagram.com", "tiktok.com", "facebook.com", "x.com", "twitter.com",
@@ -40,14 +50,14 @@ function fmtDuration(min) {
 
 function showError(text) { $("error").textContent = text || ""; }
 
-function chipEl(domain, removable) {
+function chipEl(label, onRemove) {
   const el = document.createElement("span");
   el.className = "chip";
-  el.append(domain);
-  if (removable) {
+  el.append(label);
+  if (onRemove) {
     const x = document.createElement("button");
     x.type = "button"; x.textContent = "×"; x.title = "Remove";
-    x.addEventListener("click", () => { chips = chips.filter(c => c !== domain); renderChips(); });
+    x.addEventListener("click", onRemove);
     el.append(x);
   }
   return el;
@@ -56,7 +66,7 @@ function chipEl(domain, removable) {
 /* ---------- chips + suggestions ---------- */
 
 function renderChips() {
-  $("chips").replaceChildren(...chips.map(d => chipEl(d, true)));
+  $("chips").replaceChildren(...chips.map(d => chipEl(d, () => { chips = chips.filter(c => c !== d); renderChips(); renderSuggestions(); })));
 }
 
 function addChip(domain) {
@@ -138,7 +148,8 @@ $("field").addEventListener("click", () => $("siteInput").focus());
 async function loadCandidates() {
   const stored = await chrome.storage.local.get("hiddenSites");
   hidden = stored.hiddenSites || [];
-  const hasHistory = await chrome.permissions.contains({ permissions: ["history"] });
+  let hasHistory = false;
+  try { hasHistory = await chrome.permissions.contains({ permissions: ["history"] }); } catch {}
   $("historyBtn").hidden = hasHistory;
   $("historyNote").hidden = hasHistory;
   let top = [];
@@ -214,14 +225,10 @@ function parseYouTube(raw) {
 }
 function allowLabel(item) { return `${item.kind} ${item.id.length > 12 ? item.id.slice(0, 12) + "…" : item.id}`; }
 function renderAllowed() {
-  $("allowChips").replaceChildren(...allowed.map(item => {
-    const el = chipEl(allowLabel(item), true);
-    el.querySelector("button").addEventListener("click", () => {
-      allowed = allowed.filter(x => !(x.kind === item.kind && x.id === item.id));
-      renderAllowed();
-    });
-    return el;
-  }));
+  $("allowChips").replaceChildren(...allowed.map(item => chipEl(allowLabel(item), () => {
+    allowed = allowed.filter(x => !(x.kind === item.kind && x.id === item.id));
+    renderAllowed();
+  })));
 }
 function commitAllow() {
   const raw = $("allowInput").value;
@@ -286,7 +293,7 @@ $("cycles").addEventListener("input", () => { renderPomoSummary(); showError("")
 /* ---------- stats and weekly chart ---------- */
 
 async function loadStats() {
-  const res = await chrome.runtime.sendMessage({ type: "stats" });
+  const res = await send({ type: "stats" });
   const days = (res && res.stats && res.stats.days) || {};
   const today = new Date();
   const get = d => Object.assign({ minutes: 0, sessions: 0, attempts: 0 }, days[dayKey(d)]);
@@ -351,7 +358,7 @@ $("schedDays").addEventListener("click", e => {
 function dayOrder(days) { return [...days].sort((a, b) => ((a + 6) % 7) - ((b + 6) % 7)); }
 
 async function loadSchedules() {
-  const res = await chrome.runtime.sendMessage({ type: "listSchedules" });
+  const res = await send({ type: "listSchedules" });
   const list = (res && res.schedules) || [];
   $("schedList").replaceChildren(...list.map(entry => {
     const li = document.createElement("li");
@@ -368,7 +375,7 @@ async function loadSchedules() {
     del.disabled = !entry.deletable;
     del.title = entry.deletable ? "Delete this schedule" : entry.reason;
     del.addEventListener("click", async () => {
-      const result = await chrome.runtime.sendMessage({ type: "deleteSchedule", id: entry.id });
+      const result = await send({ type: "deleteSchedule", id: entry.id });
       $("schedError").textContent = result.ok ? "" : result.error;
       loadSchedules();
     });
@@ -382,7 +389,7 @@ $("schedAdd").addEventListener("click", async () => {
   if ($("siteInput").value.trim()) commitTyped();
   if (!commitAllow()) { $("schedError").textContent = "Fix the allowed page first."; return; }
   const goal = cleanGoal($("goal").value);
-  const res = await chrome.runtime.sendMessage({
+  const res = await send({
     type: "addSchedule", days: [...schedDays], time: $("schedTime").value,
     minutes: Number($("schedMinutes").value), domains: chips, goal, allowed
   });
@@ -439,7 +446,7 @@ $("start").addEventListener("click", async () => {
     return;
   }
   disarm();
-  const res = await chrome.runtime.sendMessage({
+  const res = await send({
     type: "start", domains: chips, goal, allowed,
     sound: $("sound").value, volume: Number($("volume").value) / 100, ...payload
   });
@@ -455,7 +462,7 @@ let timer;
 async function addSiteLive() {
   const domain = cleanDomain($("lockedSite").value);
   if (!domain) { $("lockedError").textContent = "Try something like reddit.com"; return; }
-  const res = await chrome.runtime.sendMessage({ type: "addSite", domain });
+  const res = await send({ type: "addSite", domain });
   if (!res.ok) { $("lockedError").textContent = res.error || "Could not add."; return; }
   $("lockedSite").value = "";
   $("lockedError").textContent = "";
@@ -465,7 +472,7 @@ $("lockedSiteAdd").addEventListener("click", addSiteLive);
 $("lockedSite").addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addSiteLive(); } });
 
 function sendSound() {
-  chrome.runtime.sendMessage({ type: "setSound", sound: $("lockedSound").value, volume: Number($("lockedVolume").value) / 100 });
+  send({ type: "setSound", sound: $("lockedSound").value, volume: Number($("lockedVolume").value) / 100 });
 }
 $("lockedSound").addEventListener("change", sendSound);
 $("lockedVolume").addEventListener("change", sendSound);
@@ -509,11 +516,14 @@ function showLocked(session) {
 }
 
 async function init() {
-  const { session } = await chrome.runtime.sendMessage({ type: "status" });
+  const res = await send({ type: "status" });
+  const session = res.session;
   if (session) showLocked(session);
   else {
+    clearInterval(timer);
     $("setup").hidden = false;
     $("locked").hidden = true;
+    if (res.ok === false) showError(res.error);
     $("siteInput").focus();
     loadStats();
     loadSchedules();
