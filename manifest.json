@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "description": "Strict website blocker. Pick your sites, pick your minutes, no undo.",
   "minimum_chrome_version": "116",
- "permissions": [
+  "permissions": [
     "storage",
     "alarms",
     "declarativeNetRequest",
