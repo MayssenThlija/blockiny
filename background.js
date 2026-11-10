@@ -11,6 +11,17 @@ const MAX_SCHEDULES = 20;
 const LOCK_HOURS = 24;
 const GRACE_MS = 10 * 60 * 1000;
 
+// The service worker can get several events at once (popup, alarms, content scripts).
+// Each lock runs its jobs one after another so they can't overwrite each other.
+function makeLock() {
+  let tail = Promise.resolve();
+  return job => { const run = tail.then(job); tail = run.catch(() => {}); return run; };
+}
+const phaseLock = makeLock();
+const sessionLock = makeLock();
+const statsLock = makeLock();
+const schedLock = makeLock();
+
 const END_MESSAGES = [
   "Session complete.",
   "Done for now.",
@@ -22,7 +33,6 @@ function isInt(value, min, max) {
   return Number.isInteger(value) && value >= min && value <= max;
 }
 function pick(list) { return list[Math.floor(Math.random() * list.length)]; }
-function dayKey(date = new Date()) { return date.toLocaleDateString("en-CA"); }
 
 async function notify(title, message) {
   const { settings } = await chrome.storage.local.get("settings");
@@ -71,26 +81,30 @@ function cleanSound(message) {
   return { sound, volume };
 }
 
-async function updateSession(mutator) {
-  const { session } = await chrome.storage.local.get("session");
-  if (!session) return null;
-  mutator(session);
-  await chrome.storage.local.set({ session });
-  return session;
+function updateSession(mutator) {
+  return sessionLock(async () => {
+    const { session } = await chrome.storage.local.get("session");
+    if (!session) return null;
+    mutator(session);
+    await chrome.storage.local.set({ session });
+    return session;
+  });
 }
 
-async function bumpDay(mutator) {
-  const { stats } = await chrome.storage.local.get("stats");
-  const data = stats || { days: {} };
-  const key = dayKey();
-  const day = Object.assign({ minutes: 0, sessions: 0, attempts: 0 }, data.days[key]);
-  mutator(day);
-  data.days[key] = day;
-  const cutoff = Date.now() - 400 * 864e5;
-  for (const k of Object.keys(data.days)) {
-    if (new Date(k).getTime() < cutoff) delete data.days[k];
-  }
-  await chrome.storage.local.set({ stats: data });
+function bumpDay(mutator) {
+  return statsLock(async () => {
+    const { stats } = await chrome.storage.local.get("stats");
+    const data = stats || { days: {} };
+    const key = dayKey();
+    const day = Object.assign({ minutes: 0, sessions: 0, attempts: 0 }, data.days[key]);
+    mutator(day);
+    data.days[key] = day;
+    const cutoff = Date.now() - 400 * 864e5;
+    for (const k of Object.keys(data.days)) {
+      if (new Date(k).getTime() < cutoff) delete data.days[k];
+    }
+    await chrome.storage.local.set({ stats: data });
+  });
 }
 
 function allowRule(item, index) {
@@ -133,7 +147,9 @@ async function endSession(completed) {
   }
 }
 
-async function applyPhase() {
+function applyPhase() { return phaseLock(applyPhaseNow); }
+
+async function applyPhaseNow() {
   const { session } = await chrome.storage.local.get("session");
   if (!session) {
     await setRules([]);
@@ -193,10 +209,6 @@ function validDomainList(domains) {
   return Array.isArray(domains) && domains.length > 0 && domains.length <= MAX_SITES && domains.every(domain => typeof domain === "string" && DOMAIN_RE.test(domain));
 }
 
-function cleanGoal(goal) {
-  return typeof goal === "string" ? goal.trim().replace(/\s+/g, " ").slice(0, 120) : "";
-}
-
 function checkAllowed(allowed, domains) {
   if (!Array.isArray(allowed) || allowed.length > MAX_ALLOWED || !allowed.every(isValidAllowed)) return "Invalid allowed page.";
   if (allowed.length && !domains.includes("youtube.com")) return "Add youtube.com to the blocked sites first.";
@@ -234,7 +246,10 @@ async function rescheduleAlarms(schedules) {
   }
 }
 
-async function runSchedules() {
+function runSchedules() { return schedLock(runSchedulesNow); }
+
+async function runSchedulesNow() {
+  await applyPhase(); // closes a session whose time is up, so it doesn't block the next scheduled one
   const schedules = await getSchedules();
   const now = Date.now();
   const { session } = await chrome.storage.local.get("session");
@@ -341,28 +356,34 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         case "addSchedule": {
           const problem = validateSchedule(message);
           if (problem) return sendResponse({ ok: false, error: problem });
-          const schedules = await getSchedules();
-          if (schedules.length >= MAX_SCHEDULES) return sendResponse({ ok: false, error: "Too many scheduled sessions." });
           const allowed = Array.isArray(message.allowed) ? message.allowed : [];
-          schedules.push({
-            id: Date.now().toString(36), createdAt: Date.now(),
-            days: [...message.days].sort(), time: message.time, minutes: message.minutes,
-            domains: [...message.domains], goal: cleanGoal(message.goal),
-            allowed: allowed.map(({ kind, id }) => ({ kind, id }))
+          const failure = await schedLock(async () => {
+            const schedules = await getSchedules();
+            if (schedules.length >= MAX_SCHEDULES) return "Too many scheduled sessions.";
+            schedules.push({
+              id: Date.now().toString(36), createdAt: Date.now(),
+              days: [...message.days].sort(), time: message.time, minutes: message.minutes,
+              domains: [...message.domains], goal: cleanGoal(message.goal),
+              allowed: allowed.map(({ kind, id }) => ({ kind, id }))
+            });
+            await chrome.storage.local.set({ schedules });
+            await runSchedulesNow();
+            return null;
           });
-          await chrome.storage.local.set({ schedules });
-          await runSchedules();
-          return sendResponse({ ok: true });
+          return sendResponse(failure ? { ok: false, error: failure } : { ok: true });
         }
         case "deleteSchedule": {
-          const schedules = await getSchedules();
-          const entry = schedules.find(item => item.id === message.id);
-          if (!entry) return sendResponse({ ok: true });
-          const info = lockInfo(entry);
-          if (!info.deletable) return sendResponse({ ok: false, error: info.reason });
-          await chrome.storage.local.set({ schedules: schedules.filter(item => item.id !== message.id) });
-          await runSchedules();
-          return sendResponse({ ok: true });
+          const failure = await schedLock(async () => {
+            const schedules = await getSchedules();
+            const entry = schedules.find(item => item.id === message.id);
+            if (!entry) return null;
+            const info = lockInfo(entry);
+            if (!info.deletable) return info.reason;
+            await chrome.storage.local.set({ schedules: schedules.filter(item => item.id !== message.id) });
+            await runSchedulesNow();
+            return null;
+          });
+          return sendResponse(failure ? { ok: false, error: failure } : { ok: true });
         }
         default:
           return sendResponse({ ok: false, error: "Unknown request." });
