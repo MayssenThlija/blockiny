@@ -1,5 +1,8 @@
 const $ = id => document.getElementById(id);
 let quotePhase = null;
+const QUOTE_LIST = (typeof QUOTES !== "undefined" && Array.isArray(QUOTES) && QUOTES.length)
+  ? QUOTES
+  : [{ text: "Stay with it.", category: "focus" }];
 
 const POOLS = {
   focus: ["focus", "discipline", "learning"],
@@ -14,8 +17,8 @@ async function getSession() {
 
 function showQuote(phaseType) {
   const categories = POOLS[phaseType] || POOLS.focus;
-  let pool = QUOTES.map((quote, index) => ({ quote, index })).filter(item => categories.includes(item.quote.category));
-  if (!pool.length) pool = QUOTES.map((quote, index) => ({ quote, index }));
+  let pool = QUOTE_LIST.map((quote, index) => ({ quote, index })).filter(item => categories.includes(item.quote.category));
+  if (!pool.length) pool = QUOTE_LIST.map((quote, index) => ({ quote, index }));
   const last = Number(localStorage.getItem("lastQuote"));
   const options = pool.length > 1 ? pool.filter(item => item.index !== last) : pool;
   const pick = options[Math.floor(Math.random() * options.length)];
